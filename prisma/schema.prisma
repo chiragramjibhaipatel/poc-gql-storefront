@@ -41,3 +41,13 @@ model Storefront{
   updatedAt  DateTime @updatedAt
 }
 
+model MarketsDomainCountry{
+  id          String   @id @default(uuid()) 
+  marketId  String
+  locale String
+  url      String   @unique
+  isoCode     String
+  shop       String 
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
