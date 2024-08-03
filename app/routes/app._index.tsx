@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -16,11 +16,16 @@ import {
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
-  return null;
+  // get storefront access token from table "storefront" for the given shop
+  const storefront = await db.storefront.findFirst({
+    where: { shop: session.shop },
+  });
+  return json({ storefront });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -93,7 +98,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
+  const { storefront } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
+  const [storefrontAccessToken, setStorefrontAccessToken] = useState(
+    storefront?.accessToken || "",
+  );
 
   const shopify = useAppBridge();
   const isLoading =
@@ -111,6 +120,19 @@ export default function Index() {
   }, [productId, shopify]);
   const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
+  function handleClickNewStoreFrontToken(): void {
+    //make a requst to the server to generate a new storefront token
+    fetch("/api/new-storefront-token", {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data);
+        shopify.toast.show("Storefront token created");
+        setStorefrontAccessToken(data.storefront_access_token.access_token);
+      });
+  }
+
   return (
     <Page>
       <TitleBar title="Remix app template">
@@ -121,6 +143,23 @@ export default function Index() {
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>
+            <Card>
+              <BlockStack gap="200" align="start">
+                <Text as="p" variant="bodyMd">
+                  Generate new storefront token
+                </Text>
+                <Text as="p" variant="bodyMd">
+                  Storefront token: {storefrontAccessToken}
+                </Text>
+                <Button
+                  onClick={handleClickNewStoreFrontToken}
+                  variant="primary"
+                  fullWidth={false}
+                >
+                  Generate new storefront access token
+                </Button>
+              </BlockStack>
+            </Card>
             <Card>
               <BlockStack gap="500">
                 <BlockStack gap="200">
